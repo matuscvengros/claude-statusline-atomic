@@ -99,9 +99,21 @@ async function install() {
   console.log(`\n${COLOR.dim}Restart Claude Code to activate.${COLOR.reset}\n`);
 }
 
+function cleanStatusLineFromFile(filePath) {
+  if (!fs.existsSync(filePath)) return false;
+  const settings = readSettings(filePath);
+  if (isOurs(settings)) {
+    delete settings.statusLine;
+    writeSettings(filePath, settings);
+    return true;
+  }
+  return false;
+}
+
 function uninstall() {
   const scriptDest = getScriptDest();
   const settingsPath = getSettingsPath();
+  const claudeDir = getClaudeDir();
 
   let removedScript = false;
   let removedConfig = false;
@@ -111,13 +123,20 @@ function uninstall() {
     removedScript = true;
   }
 
-  if (fs.existsSync(settingsPath)) {
-    const settings = readSettings(settingsPath);
-    if (isOurs(settings)) {
-      delete settings.statusLine;
-      writeSettings(settingsPath, settings);
-      removedConfig = true;
+  if (cleanStatusLineFromFile(settingsPath)) {
+    removedConfig = true;
+  }
+
+  // Also clean statusLine from any settings backup files so that
+  // restoring a backup doesn't resurrect a reference to the deleted script.
+  try {
+    const backupFiles = fs.readdirSync(claudeDir)
+      .filter((f) => f.startsWith('settings.json.') && f.endsWith('-backup'));
+    for (const backup of backupFiles) {
+      cleanStatusLineFromFile(path.join(claudeDir, backup));
     }
+  } catch {
+    // Ignore errors reading backup files
   }
 
   if (!removedScript && !removedConfig) {
