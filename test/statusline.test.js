@@ -29,6 +29,13 @@ describe('formatTokens', () => {
   it('formats fractional millions', () => {
     assert.equal(formatTokens(1500000), '1.5M');
   });
+
+  it('handles boundary values without producing 1000.0K', () => {
+    assert.equal(formatTokens(999999), '1M');
+    assert.equal(formatTokens(999900), '999.9K');
+    assert.equal(formatTokens(999949), '999.9K');
+    assert.equal(formatTokens(999950), '1M');
+  });
 });
 
 describe('getColor', () => {

@@ -23,12 +23,12 @@ function getColor(usedPct) {
 }
 
 function formatTokens(count) {
-  if (count >= 1000000) {
-    const val = count / 1000000;
+  if (count >= 999950) {
+    const val = Math.round(count / 100000) / 10;
     return val % 1 === 0 ? `${val}M` : `${val.toFixed(1)}M`;
   }
   if (count >= 1000) {
-    const val = count / 1000;
+    const val = Math.round(count / 100) / 10;
     return val % 1 === 0 ? `${val}K` : `${val.toFixed(1)}K`;
   }
   return String(count);
@@ -69,7 +69,7 @@ function main() {
       const data = JSON.parse(input);
       process.stdout.write(render(data));
     } catch {
-      process.stdout.write('');
+      process.stdout.write(render(null));
     }
   });
 }

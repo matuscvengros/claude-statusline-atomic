@@ -28,13 +28,15 @@ function runCli(args, env = {}) {
 describe('CLI', () => {
   let tmpHome;
   let claudeDir;
+  let hooksDir;
   let scriptPath;
   let settingsPath;
 
   beforeEach(() => {
     tmpHome = createTempHome();
     claudeDir = path.join(tmpHome, '.claude');
-    scriptPath = path.join(claudeDir, 'claude-context-window.js');
+    hooksDir = path.join(claudeDir, 'hooks');
+    scriptPath = path.join(hooksDir, 'claude-context-window.js');
     settingsPath = path.join(claudeDir, 'settings.json');
   });
 
@@ -99,6 +101,24 @@ describe('CLI', () => {
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       assert.ok(!settings.statusLine.command.includes('\\'), 'command should not contain backslashes');
     });
+
+    it('quotes the script path in command', () => {
+      runCli(['install'], { HOME: tmpHome });
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      assert.ok(settings.statusLine.command.startsWith('node "'), 'command should quote the path');
+      assert.ok(settings.statusLine.command.endsWith('"'), 'command should end with closing quote');
+    });
+
+    it('removes legacy script from ~/.claude on install', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+      const legacyPath = path.join(claudeDir, 'claude-context-window.js');
+      fs.writeFileSync(legacyPath, '// old');
+
+      runCli(['install'], { HOME: tmpHome });
+
+      assert.ok(!fs.existsSync(legacyPath), 'legacy script should be removed');
+      assert.ok(fs.existsSync(scriptPath), 'new script should exist in hooks/');
+    });
   });
 
   describe('uninstall', () => {
@@ -149,6 +169,20 @@ describe('CLI', () => {
       const { stdout } = runCli(['uninstall'], { HOME: emptyHome });
       assert.ok(stdout.includes('Nothing to uninstall'));
       fs.rmSync(emptyHome, { recursive: true, force: true });
+    });
+
+    it('removes legacy script from ~/.claude on uninstall', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+      const legacyPath = path.join(claudeDir, 'claude-context-window.js');
+      fs.writeFileSync(legacyPath, '// old');
+      fs.writeFileSync(settingsPath, JSON.stringify({
+        statusLine: { type: 'command', command: 'node /old/claude-context-window.js' },
+      }));
+
+      const { stdout } = runCli(['uninstall'], { HOME: tmpHome });
+
+      assert.ok(!fs.existsSync(legacyPath), 'legacy script should be removed');
+      assert.ok(stdout.includes('uninstalled'));
     });
   });
 

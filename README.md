@@ -32,7 +32,7 @@ npx claude-context-window@latest uninstall
 
 ## How it works
 
-The installer copies a lightweight Node.js script to `~/.claude/claude-context-window.js` and configures the `statusLine` setting in `~/.claude/settings.json`. Claude Code periodically invokes the script, passing context window metrics via stdin. The script outputs a formatted, color-coded status line.
+The installer copies a lightweight Node.js script to `~/.claude/hooks/claude-context-window.js` and configures the `statusLine` setting in `~/.claude/settings.json`. Claude Code periodically invokes the script, passing context window metrics via stdin. The script outputs a formatted, color-coded status line.
 
 **Colors indicate context usage:**
 

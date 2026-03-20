@@ -21,8 +21,12 @@ function getClaudeDir() {
   return path.join(os.homedir(), '.claude');
 }
 
+function getHooksDir() {
+  return path.join(getClaudeDir(), 'hooks');
+}
+
 function getScriptDest() {
-  return path.join(getClaudeDir(), SCRIPT_NAME);
+  return path.join(getHooksDir(), SCRIPT_NAME);
 }
 
 function getSettingsPath() {
@@ -31,7 +35,7 @@ function getSettingsPath() {
 
 function buildCommand(scriptPath) {
   const normalized = scriptPath.replace(/\\/g, '/');
-  return `node ${normalized}`;
+  return `node "${normalized}"`;
 }
 
 function readSettings(settingsPath) {
@@ -64,16 +68,8 @@ function askOverwrite() {
 }
 
 async function install() {
-  const claudeDir = getClaudeDir();
   const scriptDest = getScriptDest();
   const settingsPath = getSettingsPath();
-
-  if (!fs.existsSync(claudeDir)) {
-    fs.mkdirSync(claudeDir, { recursive: true });
-  }
-
-  const scriptSrc = path.join(__dirname, '..', 'src', 'statusline.js');
-  fs.copyFileSync(scriptSrc, scriptDest);
 
   const settings = readSettings(settingsPath);
 
@@ -83,6 +79,20 @@ async function install() {
       console.log(`${COLOR.dim}Installation cancelled.${COLOR.reset}`);
       process.exit(0);
     }
+  }
+
+  const hooksDir = getHooksDir();
+  if (!fs.existsSync(hooksDir)) {
+    fs.mkdirSync(hooksDir, { recursive: true });
+  }
+
+  const scriptSrc = path.join(__dirname, '..', 'src', 'statusline.js');
+  fs.copyFileSync(scriptSrc, scriptDest);
+
+  // Remove legacy script from pre-0.2.0 installs (was in ~/.claude/ instead of ~/.claude/hooks/)
+  const legacyScript = path.join(getClaudeDir(), SCRIPT_NAME);
+  if (fs.existsSync(legacyScript)) {
+    fs.unlinkSync(legacyScript);
   }
 
   settings.statusLine = {
@@ -120,6 +130,13 @@ function uninstall() {
 
   if (fs.existsSync(scriptDest)) {
     fs.unlinkSync(scriptDest);
+    removedScript = true;
+  }
+
+  // Remove legacy script from pre-0.2.0 installs (was in ~/.claude/ instead of ~/.claude/hooks/)
+  const legacyScript = path.join(claudeDir, SCRIPT_NAME);
+  if (fs.existsSync(legacyScript)) {
+    fs.unlinkSync(legacyScript);
     removedScript = true;
   }
 
