@@ -1,0 +1,11 @@
+{
+  "name": "claude-context-window",
+  "description": "Real-time context window usage bar for Claude Code status line",
+  "version": "0.1.0",
+  "author": {
+    "name": "Matus Cvengros",
+    "email": "matus.cvengros@gmail.com"
+  },
+  "category": "productivity",
+  "homepage": "https://github.com/matuscvengros/claude-context-window"
+}

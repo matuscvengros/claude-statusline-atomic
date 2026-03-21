@@ -4,9 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const readline = require('readline');
 
-const SCRIPT_NAME = 'claude-context-window.js';
+const SCRIPT_NAME = 'statusline.js';
 const MARKER = 'claude-context-window';
 
 const COLOR = {
@@ -21,12 +20,8 @@ function getClaudeDir() {
   return path.join(os.homedir(), '.claude');
 }
 
-function getHooksDir() {
-  return path.join(getClaudeDir(), 'hooks');
-}
-
 function getScriptDest() {
-  return path.join(getHooksDir(), SCRIPT_NAME);
+  return path.join(getClaudeDir(), SCRIPT_NAME);
 }
 
 function getSettingsPath() {
@@ -35,7 +30,7 @@ function getSettingsPath() {
 
 function buildCommand(scriptPath) {
   const normalized = scriptPath.replace(/\\/g, '/');
-  return `node "${normalized}"`;
+  return `node "${normalized}" # claude-context-window`;
 }
 
 function readSettings(settingsPath) {
@@ -57,33 +52,22 @@ function isOurs(settings) {
     && settings.statusLine.command.includes(MARKER);
 }
 
-function askOverwrite() {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(`${COLOR.yellow}A statusLine is already configured. Overwrite? (y/N) ${COLOR.reset}`, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase() === 'y');
-    });
-  });
-}
-
-async function install() {
+function install() {
   const scriptDest = getScriptDest();
   const settingsPath = getSettingsPath();
 
   const settings = readSettings(settingsPath);
 
   if (settings.statusLine && !isOurs(settings)) {
-    const overwrite = await askOverwrite();
-    if (!overwrite) {
-      console.log(`${COLOR.dim}Installation cancelled.${COLOR.reset}`);
-      process.exit(0);
-    }
+    console.error(`${COLOR.yellow}Warning: a statusLine is already configured by another tool.${COLOR.reset}`);
+    console.error(`  Existing command: ${settings.statusLine.command}`);
+    console.error(`${COLOR.dim}Remove it manually from ${settingsPath} and try again.${COLOR.reset}`);
+    process.exit(1);
   }
 
-  const hooksDir = getHooksDir();
-  if (!fs.existsSync(hooksDir)) {
-    fs.mkdirSync(hooksDir, { recursive: true });
+  const claudeDir = getClaudeDir();
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
   }
 
   const scriptSrc = path.join(__dirname, '..', 'src', 'statusline.js');
@@ -124,6 +108,13 @@ function uninstall() {
 
   if (fs.existsSync(scriptDest)) {
     fs.unlinkSync(scriptDest);
+    removedScript = true;
+  }
+
+  // Also remove legacy location (~/.claude/hooks/claude-context-window.js)
+  const legacyDest = path.join(claudeDir, 'hooks', 'claude-context-window.js');
+  if (fs.existsSync(legacyDest)) {
+    fs.unlinkSync(legacyDest);
     removedScript = true;
   }
 
@@ -168,10 +159,7 @@ const command = process.argv[2];
 
 switch (command) {
   case 'install':
-    install().catch((err) => {
-      console.error(`${COLOR.red}Install failed: ${err.message}${COLOR.reset}`);
-      process.exit(1);
-    });
+    install();
     break;
   case 'uninstall':
     uninstall();

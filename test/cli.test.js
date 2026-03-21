@@ -28,15 +28,13 @@ function runCli(args, env = {}) {
 describe('CLI', () => {
   let tmpHome;
   let claudeDir;
-  let hooksDir;
   let scriptPath;
   let settingsPath;
 
   beforeEach(() => {
     tmpHome = createTempHome();
     claudeDir = path.join(tmpHome, '.claude');
-    hooksDir = path.join(claudeDir, 'hooks');
-    scriptPath = path.join(hooksDir, 'claude-context-window.js');
+    scriptPath = path.join(claudeDir, 'statusline.js');
     settingsPath = path.join(claudeDir, 'settings.json');
   });
 
@@ -106,7 +104,47 @@ describe('CLI', () => {
       runCli(['install'], { HOME: tmpHome });
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       assert.ok(settings.statusLine.command.startsWith('node "'), 'command should quote the path');
-      assert.ok(settings.statusLine.command.endsWith('"'), 'command should end with closing quote');
+      assert.ok(settings.statusLine.command.includes('" # claude-context-window'), 'command should have marker comment');
+    });
+
+    it('refuses to overwrite another tool statusLine', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+      fs.writeFileSync(settingsPath, JSON.stringify({
+        statusLine: { type: 'command', command: 'node /other/tool.js' },
+      }));
+
+      const { exitCode } = runCli(['install'], { HOME: tmpHome });
+      assert.equal(exitCode, 1);
+
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      assert.equal(settings.statusLine.command, 'node /other/tool.js', 'should not overwrite');
+    });
+
+    it('is idempotent when run twice', () => {
+      runCli(['install'], { HOME: tmpHome });
+      const first = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+
+      runCli(['install'], { HOME: tmpHome });
+      const second = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+
+      assert.deepEqual(first, second);
+    });
+
+    it('sets padding to 0', () => {
+      runCli(['install'], { HOME: tmpHome });
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      assert.equal(settings.statusLine.padding, 0);
+    });
+
+    it('handles corrupt settings.json gracefully', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+      fs.writeFileSync(settingsPath, 'not valid json{{{');
+
+      const { exitCode } = runCli(['install'], { HOME: tmpHome });
+      assert.equal(exitCode, 0);
+
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      assert.ok(settings.statusLine, 'should install despite corrupt existing settings');
     });
 
 });
@@ -159,6 +197,69 @@ describe('CLI', () => {
       const { stdout } = runCli(['uninstall'], { HOME: emptyHome });
       assert.ok(stdout.includes('Nothing to uninstall'));
       fs.rmSync(emptyHome, { recursive: true, force: true });
+    });
+
+    it('removes legacy hooks location', () => {
+      const hooksDir = path.join(claudeDir, 'hooks');
+      fs.mkdirSync(hooksDir, { recursive: true });
+
+      const legacyPath = path.join(hooksDir, 'claude-context-window.js');
+      fs.writeFileSync(legacyPath, '// legacy');
+
+      // Also need a settings entry so uninstall reports success
+      fs.writeFileSync(settingsPath, JSON.stringify({
+        statusLine: { type: 'command', command: 'node /old/claude-context-window.js' },
+      }));
+
+      const { stdout } = runCli(['uninstall'], { HOME: tmpHome });
+      assert.ok(!fs.existsSync(legacyPath), 'legacy script should be removed');
+      assert.ok(stdout.includes('uninstalled'));
+    });
+
+    it('cleans statusLine from backup files', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+
+      // Create main settings and a backup, both with our statusLine
+      const ourSettings = {
+        theme: 'dark',
+        statusLine: { type: 'command', command: 'node /path/claude-context-window.js' },
+      };
+      fs.writeFileSync(settingsPath, JSON.stringify(ourSettings));
+
+      const backupPath = path.join(claudeDir, 'settings.json.20260321-backup');
+      fs.writeFileSync(backupPath, JSON.stringify(ourSettings));
+
+      runCli(['uninstall'], { HOME: tmpHome });
+
+      const backup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+      assert.equal(backup.statusLine, undefined, 'backup should have statusLine removed');
+      assert.equal(backup.theme, 'dark', 'backup should preserve other keys');
+    });
+
+    it('does not clean backup files belonging to another tool', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+
+      // Install ours so there's something to uninstall
+      runCli(['install'], { HOME: tmpHome });
+
+      // Create a backup with another tool's statusLine
+      const backupPath = path.join(claudeDir, 'settings.json.20260321-backup');
+      fs.writeFileSync(backupPath, JSON.stringify({
+        statusLine: { type: 'command', command: 'node /other/tool.js' },
+      }));
+
+      runCli(['uninstall'], { HOME: tmpHome });
+
+      const backup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+      assert.ok(backup.statusLine, 'should preserve other tool statusLine in backup');
+    });
+
+    it('handles corrupt settings.json gracefully', () => {
+      fs.mkdirSync(claudeDir, { recursive: true });
+      fs.writeFileSync(settingsPath, 'garbage{{{');
+
+      const { stdout } = runCli(['uninstall'], { HOME: tmpHome });
+      assert.ok(stdout.includes('Nothing to uninstall'));
     });
 
 });

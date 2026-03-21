@@ -36,6 +36,12 @@ describe('formatTokens', () => {
     assert.equal(formatTokens(999949), '999.9K');
     assert.equal(formatTokens(999950), '1M');
   });
+
+  it('formats large token counts', () => {
+    assert.equal(formatTokens(5000000), '5M');
+    assert.equal(formatTokens(10000000), '10M');
+    assert.equal(formatTokens(1200000), '1.2M');
+  });
 });
 
 describe('getColor', () => {
@@ -57,6 +63,18 @@ describe('getColor', () => {
   it('returns red at 90%+', () => {
     assert.equal(getColor(90), '\x1b[31m');
     assert.equal(getColor(100), '\x1b[31m');
+  });
+
+  it('returns correct color at exact thresholds', () => {
+    // 49 is green, 50 is yellow
+    assert.equal(getColor(49), '\x1b[32m');
+    assert.equal(getColor(50), '\x1b[33m');
+    // 74 is yellow, 75 is orange
+    assert.equal(getColor(74), '\x1b[33m');
+    assert.equal(getColor(75), '\x1b[38;5;208m');
+    // 89 is orange, 90 is red
+    assert.equal(getColor(89), '\x1b[38;5;208m');
+    assert.equal(getColor(90), '\x1b[31m');
   });
 });
 

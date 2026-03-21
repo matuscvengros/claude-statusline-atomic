@@ -1,0 +1,15 @@
+{
+  "name": "claude-context-window",
+  "description": "Real-time context window usage bar for Claude Code",
+  "owner": {
+    "name": "Matus Cvengros",
+    "email": "matus.cvengros@gmail.com"
+  },
+  "homepage": "https://github.com/matuscvengros/claude-context-window",
+  "plugins": [
+    {
+      "name": "claude-context-window",
+      "source": "."
+    }
+  ]
+}

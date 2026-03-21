@@ -1,6 +1,6 @@
 {
   "name": "claude-context-window",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Real-time context window usage bar for Claude Code",
   "bin": {
     "claude-context-window": "bin/cli.js"
@@ -22,6 +22,9 @@
   "files": [
     "bin/",
     "src/",
+    "commands/",
+    "install.sh",
+    ".claude-plugin/",
     "LICENSE",
     "README.md"
   ],
