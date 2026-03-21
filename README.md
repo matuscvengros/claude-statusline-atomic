@@ -94,7 +94,7 @@ All install methods embed a `# claude-context-window` marker comment in the sett
 
 - Node.js >= 18
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- `jq` (only for `install.sh`)
+- `jq` (only for `install.sh` / `uninstall.sh`)
 
 ## License
 
