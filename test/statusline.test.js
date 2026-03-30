@@ -173,6 +173,15 @@ describe('truncateDir', () => {
     const result = truncateDir(home + '/a/b/c/d');
     assert.equal(result, '..b/c/d');
   });
+
+  it('returns ~ for home directory itself', () => {
+    assert.equal(truncateDir(home), '~');
+  });
+
+  it('handles root path', () => {
+    // Root has no meaningful directory name to display
+    assert.equal(truncateDir('/'), '');
+  });
 });
 
 describe('makeOSC8Link', () => {
@@ -183,8 +192,8 @@ describe('makeOSC8Link', () => {
 
   it('sanitizes control characters in URL and text', () => {
     const link = makeOSC8Link('https://example.com/\x07evil', 'repo\x1bname');
-    // BEL and ESC should be stripped from the URL and text portions
-    assert.ok(!link.includes('evil') || !link.includes('\x07evil'));
+    // BEL should be stripped from URL, ESC from text
+    assert.ok(!link.includes('\x07evil'));
     assert.ok(link.includes('https://example.com/evil'));
     assert.ok(link.includes('reponame'));
   });
@@ -360,6 +369,17 @@ describe('renderLine2', () => {
     };
     const output = renderLine2(data);
     assert.ok(output.includes('[100K/200K]'));
+  });
+
+  it('renders 0% as a number (not waiting state)', () => {
+    const data = {
+      context_window: { used_percentage: 0, context_window_size: 200000 },
+      model: { display_name: 'Test' },
+    };
+    const output = renderLine2(data);
+    assert.ok(output.includes('[0%]'));
+    assert.ok(output.includes('[0/200K]'));
+    assert.ok(!output.includes('[waiting...]'));
   });
 
   it('clamps percentage to 0-100', () => {
