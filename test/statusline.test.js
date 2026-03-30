@@ -7,6 +7,7 @@ const {
   buildBar,
   getColor,
   formatTokens,
+  truncateDir,
   getUsername,
   getGitBranch,
   getGitChanges,
@@ -127,6 +128,49 @@ describe('sanitizeForOSC', () => {
 
   it('handles empty string', () => {
     assert.equal(sanitizeForOSC(''), '');
+  });
+});
+
+describe('truncateDir', () => {
+  const os = require('os');
+  const home = os.homedir();
+
+  it('returns empty string for empty input', () => {
+    assert.equal(truncateDir(''), '');
+  });
+
+  it('shows short absolute paths as-is', () => {
+    assert.equal(truncateDir('/var/tmp'), '/var/tmp');
+  });
+
+  it('substitutes ~ for home directory', () => {
+    assert.equal(truncateDir(home + '/project'), '~/project');
+  });
+
+  it('shows home dir paths with 3 or fewer parts', () => {
+    assert.equal(truncateDir(home + '/a/b'), '~/a/b');
+  });
+
+  it('truncates to last 3 components with .. prefix', () => {
+    assert.equal(truncateDir('/home/user/project/dir1/dir2/dir3/dir4'), '..dir2/dir3/dir4');
+  });
+
+  it('truncates home-relative deep paths', () => {
+    const deep = home + '/a/b/c/d';
+    assert.equal(truncateDir(deep), '..b/c/d');
+  });
+
+  it('handles root-level paths', () => {
+    assert.equal(truncateDir('/tmp'), '/tmp');
+  });
+
+  it('handles exactly 3 components under home', () => {
+    assert.equal(truncateDir(home + '/a/b/c'), '~/a/b/c');
+  });
+
+  it('truncates when more than 3 components under home', () => {
+    const result = truncateDir(home + '/a/b/c/d');
+    assert.equal(result, '..b/c/d');
   });
 });
 
@@ -358,12 +402,12 @@ describe('renderLine1', () => {
     }
   });
 
-  it('includes project directory basename', () => {
+  it('includes truncated project directory', () => {
     const data = {
-      workspace: { current_dir: '/home/user/my-project' },
+      workspace: { current_dir: '/var/tmp' },
     };
     const output = renderLine1(data);
-    assert.ok(output.includes('[my-project]'));
+    assert.ok(output.includes('[/var/tmp]'));
   });
 
   it('handles missing workspace', () => {
@@ -396,7 +440,7 @@ describe('renderLine1', () => {
   });
 
   it('uses colon before repo and slash before branch', () => {
-    const output = renderLine1({ workspace: { current_dir: '/home/user/proj' } });
+    const output = renderLine1({ workspace: { current_dir: '/var/proj' } });
     const remoteUrl = getGitRemoteUrl();
     const branch = getGitBranch();
     if (remoteUrl && branch) {
@@ -407,10 +451,10 @@ describe('renderLine1', () => {
   });
 
   it('uses space between username and directory', () => {
-    const output = renderLine1({ workspace: { current_dir: '/home/user/proj' } });
+    const output = renderLine1({ workspace: { current_dir: '/var/proj' } });
     const username = getUsername();
     if (username) {
-      assert.ok(output.includes('] [proj]'));
+      assert.ok(output.includes('] [/var/proj]'));
     }
   });
 });
@@ -435,7 +479,7 @@ describe('renderStatusLine', () => {
     };
     const output = renderStatusLine(data);
     const [line1, line2] = output.split('\n');
-    assert.ok(line1.includes('[my-app]'));
+    assert.ok(line1.includes('my-app'));
     assert.ok(line2.includes('[Opus 4.6]'));
     assert.ok(line2.includes('[45%]'));
   });

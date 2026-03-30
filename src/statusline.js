@@ -112,15 +112,30 @@ function makeOSC8Link(url, text) {
   return `\x1b]8;;${sanitizeForOSC(url)}\x07${sanitizeForOSC(text)}\x1b]8;;\x07`;
 }
 
+function truncateDir(fullPath) {
+  if (!fullPath) return '';
+  const home = os.homedir();
+  let parts = fullPath.split('/').filter(Boolean);
+  let prefix = '/';
+  if (home && (fullPath === home || fullPath.startsWith(home + '/'))) {
+    const homeParts = home.split('/').filter(Boolean);
+    parts = parts.slice(homeParts.length);
+    prefix = '~/';
+  }
+  if (parts.length === 0) return prefix.replace(/\/$/, '');
+  if (parts.length <= 3) return prefix + parts.join('/');
+  return '..' + parts.slice(-3).join('/');
+}
+
 function renderLine1(data) {
   const username = getUsername();
   const projectDir = (data && data.workspace && data.workspace.current_dir) || '';
-  const dirName = projectDir ? path.basename(projectDir) : '';
+  const dirLabel = truncateDir(projectDir);
 
   let line = '';
 
   if (username) line += `[${COLOR.cyan}${username}${COLOR.reset}]`;
-  if (dirName) line += (line ? ' ' : '') + `[${dirName}]`;
+  if (dirLabel) line += (line ? ' ' : '') + `[${dirLabel}]`;
 
   const remoteUrl = getGitRemoteUrl();
   const branch = getGitBranch();
@@ -195,6 +210,7 @@ module.exports = {
   buildBar,
   getColor,
   formatTokens,
+  truncateDir,
   getUsername,
   getGitBranch,
   getGitChanges,
