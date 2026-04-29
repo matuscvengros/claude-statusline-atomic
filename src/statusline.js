@@ -170,11 +170,29 @@ function renderLine1(data) {
   return line;
 }
 
+function getEffortLabel(data) {
+  const eff = (data && data.effort) || (data && data.model && data.model.effort);
+  if (!eff) return '';
+  if (typeof eff === 'string') return eff;
+  if (typeof eff === 'object' && typeof eff.level === 'string') return eff.level;
+  return '';
+}
+
+function getExactUsedTokens(ctx) {
+  const usage = ctx && ctx.current_usage;
+  if (!usage || typeof usage !== 'object') return null;
+  const input = typeof usage.input_tokens === 'number' ? usage.input_tokens : 0;
+  const cacheCreate = typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0;
+  const cacheRead = typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
+  const total = input + cacheCreate + cacheRead;
+  return total > 0 ? total : null;
+}
+
 function renderLine2(data) {
   const ctx = data && data.context_window;
   const usedPctRaw = ctx && typeof ctx.used_percentage === 'number' ? ctx.used_percentage : null;
   const modelName = (data && data.model && data.model.display_name) || 'Claude';
-  const effort = (data && data.effort) || (data && data.model && data.model.effort) || '';
+  const effort = getEffortLabel(data);
   const modelLabel = effort ? `${modelName} (${effort})` : modelName;
 
   if (usedPctRaw === null) {
@@ -188,7 +206,10 @@ function renderLine2(data) {
   const bar = buildBar(clamped);
 
   const ctxSize = (ctx && ctx.context_window_size) || 200000;
-  const usedTokens = Math.round(ctxSize * clampedRaw / 100);
+  const exactTokens = getExactUsedTokens(ctx);
+  const usedTokens = exactTokens !== null
+    ? exactTokens
+    : Math.round(ctxSize * clampedRaw / 100);
 
   return `${color}[${modelLabel}] [${formatTokens(usedTokens)}/${formatTokens(ctxSize)}] ${bar} [${clamped}%]${COLOR.reset}`;
 }

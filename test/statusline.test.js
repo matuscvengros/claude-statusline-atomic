@@ -449,6 +449,76 @@ describe('renderLine2', () => {
     assert.ok(output.includes('[454K/1M]'), `expected 454K, got: ${output}`);
     assert.ok(output.includes('[45%]'));
   });
+
+  it('handles effort as object with level property', () => {
+    // Claude Code passes effort as { level: "high" }, not as a string.
+    // Stringifying the object directly yields "[object Object]".
+    const data = {
+      context_window: { used_percentage: 50, context_window_size: 200000 },
+      model: { display_name: 'Opus 4.7' },
+      effort: { level: 'high' },
+    };
+    const output = renderLine2(data);
+    assert.ok(output.includes('[Opus 4.7 (high)]'), `got: ${output}`);
+    assert.ok(!output.includes('[object Object]'));
+  });
+
+  it('omits effort when object has no level', () => {
+    const data = {
+      context_window: { used_percentage: 50, context_window_size: 200000 },
+      model: { display_name: 'Opus 4.7' },
+      effort: {},
+    };
+    const output = renderLine2(data);
+    assert.ok(output.includes('[Opus 4.7]'));
+    assert.ok(!output.includes('[object Object]'));
+  });
+
+  it('uses exact tokens from current_usage instead of deriving from percentage', () => {
+    // used_percentage may arrive already rounded (46), which on a 1M context
+    // would quantize tokens to 10k steps. current_usage gives exact counts.
+    const data = {
+      context_window: {
+        used_percentage: 46,
+        context_window_size: 1000000,
+        current_usage: {
+          input_tokens: 8500,
+          output_tokens: 1200,
+          cache_creation_input_tokens: 200000,
+          cache_read_input_tokens: 248765,
+        },
+      },
+      model: { display_name: 'Opus 4.7' },
+    };
+    const output = renderLine2(data);
+    // 8500 + 200000 + 248765 = 457265 → "457.3K", not the 460K we'd get
+    // from rounding 46% of 1M.
+    assert.ok(output.includes('[457.3K/1M]'), `expected 457.3K, got: ${output}`);
+    assert.ok(output.includes('[46%]'));
+  });
+
+  it('falls back to percentage-based tokens when current_usage is absent', () => {
+    const data = {
+      context_window: { used_percentage: 45, context_window_size: 1000000 },
+      model: { display_name: 'Opus 4.7' },
+    };
+    const output = renderLine2(data);
+    assert.ok(output.includes('[450K/1M]'));
+  });
+
+  it('ignores current_usage when all token fields are zero or missing', () => {
+    const data = {
+      context_window: {
+        used_percentage: 50,
+        context_window_size: 200000,
+        current_usage: { output_tokens: 100 },
+      },
+      model: { display_name: 'Opus 4.7' },
+    };
+    const output = renderLine2(data);
+    // Should fall back to percentage-derived: 50% of 200K = 100K
+    assert.ok(output.includes('[100K/200K]'));
+  });
 });
 
 describe('renderLine1', () => {
